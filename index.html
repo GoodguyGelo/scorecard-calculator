@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Promises Delivered Calculator</title>
+  <link rel="icon" href="https://www.remitly.com/favicon.ico" type="image/x-icon" />
+
+  <style>
+    :root {
+      --remitly-blue: #0052cc;
+      --remitly-light-blue: #f4faff;
+      --remitly-green: #00c7b1;
+      --remitly-red: #ff4d4f;
+      --remitly-yellow: #ffc107;
+      --text-color: #1c1e21;
+      --card-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: var(--remitly-light-blue);
+      margin: 0;
+      padding: 30px;
+      color: var(--text-color);
+    }
+
+    .container {
+      max-width: 800px;
+      margin: auto;
+      background: #ffffff;
+      padding: 30px;
+      border-radius: 10px;
+      box-shadow: var(--card-shadow);
+    }
+
+    h1,
+    h2 {
+      color: var(--remitly-blue);
+      text-align: center;
+    }
+
+    label {
+      display: block;
+      margin: 15px 0 5px;
+    }
+
+    input[type="number"],
+    select {
+      width: 100%;
+      padding: 10px;
+      margin-bottom: 10px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+    }
+
+    button {
+      background-color: var(--remitly-blue);
+      color: white;
+      padding: 10px 15px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: bold;
+      margin-top: 10px;
+    }
+
+    button:hover {
+      background-color: #003f99;
+    }
+
+    .progress-bar {
+      background-color: #eee;
+      border-radius: 10px;
+      padding: 10px;
+      margin-bottom: 10px;
+    }
+
+    .hints {
+      margin-top: 20px;
+      background-color: #fffbe6;
+      padding: 15px;
+      border-left: 4px solid var(--remitly-yellow);
+      border-radius: 4px;
+    }
+
+    .overall-score {
+      font-size: 24px;
+      font-weight: bold;
+      margin-top: 20px;
+      text-align: center;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <h1 id="mainHeading">Promises Delivered Calculator</h1>
+
+    <label for="role">Select Role:</label>
+    <select id="role" onchange="toggleInputs()">
+      <option value="">-- Select --</option>
+      <option value="CPT">Regular CPT</option>
+      <option value="EDD">EDD</option>
+    </select>
+
+    <div id="kpiInputs" style="display:none;">
+      <h2>Enter Your KPIs</h2>
+      <div id="inputsContainer"></div>
+      <button onclick="calculateScore()">Evaluate</button>
+    </div>
+
+    <div id="progress" class="progress-container" style="display:none;"></div>
+    <div id="overallScore" class="overall-score"></div>
+    <div id="hints" class="hints"></div>
+    <button onclick="location.reload()">🔄 Restart</button>
+  </div>
+
+  <script>
+    const kpiDefinitions = {
+      CPT: {
+        efficiency: { label: "Efficiency (TPH)", goal: 82.5, weight: 10 },
+        productivity: { label: "Productivity (BTFC)", goal: 80, weight: 30 },
+        reactivation: { label: "Reactivation Rate", goal: 1.5, weight: 7.5, inverse: true },
+        showrate: { label: "Show Rate", goal: 95, weight: 12.5 },
+        knowledge: { label: "Knowledge Check", goal: 80, weight: 10 },
+        decision: { label: "Decision Accuracy", goal: 100, weight: 25 },
+        process: { label: "Process Adherence", goal: 90, weight: 5 }
+      },
+      EDD: {
+        efficiency: { label: "Efficiency (TPH)", goal: 82.5, weight: 10 },
+        productivity: { label: "Productivity (BTFC)", goal: 80, weight: 25 },
+        showrate: { label: "Show Rate", goal: 95, weight: 12.5 },
+        knowledge: { label: "Knowledge Check", goal: 80, weight: 10 },
+        decision: { label: "Decision Quality", goal: 95, weight: 42.5 }
+      }
+    };
+
+    function toggleInputs() {
+      const role = document.getElementById("role").value;
+      const container = document.getElementById("inputsContainer");
+      const heading = document.getElementById("mainHeading");
+      heading.innerText = role === "EDD"
+        ? "EDD Promises Delivered Calculator"
+        : role === "CPT"
+          ? "Regular CPT Promises Delivered Calculator"
+          : "Promises Delivered Calculator";
+
+      container.innerHTML = "";
+
+      if (!role) {
+        document.getElementById("kpiInputs").style.display = "none";
+        return;
+      }
+
+      document.getElementById("kpiInputs").style.display = "block";
+
+      for (let kpi in kpiDefinitions[role]) {
+        const def = kpiDefinitions[role][kpi];
+        container.innerHTML += `
+          <label>${def.label}</label>
+          <input type="number" id="${kpi}" />
+        `;
+      }
+    }
+
+    function calculateScore() {
+      const role = document.getElementById("role").value;
+      const kpis = kpiDefinitions[role];
+      let total = 0;
+      let maxScore = 0;
+      let hints = [];
+      let progressHTML = "";
+
+      for (let kpi in kpis) {
+        const { goal, weight, inverse } = kpis[kpi];
+        let input = parseFloat(document.getElementById(kpi).value) || 0;
+        let score = 0;
+
+        if (kpi === "reactivation" && input >= 3.0) {
+          score = 0;
+        } else if (inverse) {
+          score = input <= goal ? weight : (goal / input) * weight;
+        } else {
+          score = input >= goal ? weight : (input / goal) * weight;
+        }
+
+        score = Math.min(score, weight);
+        total += score;
+        maxScore += weight;
+
+        let remaining = inverse ? (input - goal) : (goal - input);
+        let scoreText = `${input}% (Goal: ${goal}%)`;
+        let extraHint = remaining > 0 ? ` - Improve by ${remaining.toFixed(2)}%` : '';
+        let barColor = score >= weight ? "var(--remitly-green)" : score >= weight * 0.7 ? "var(--remitly-yellow)" : "var(--remitly-red)";
+
+        progressHTML += `
+          <div class="progress-bar" style="background-color: ${barColor}">
+            <strong>${kpis[kpi].label}:</strong> ${scoreText}${extraHint}
+          </div>
+        `;
+
+        if (score < weight) {
+          const direction = inverse ? "below" : "at least";
+          hints.push(`Improve ${kpis[kpi].label} to ${direction} ${goal}% (current: ${input}%)`);
+        }
+      }
+
+      const overall = ((total / maxScore) * 100).toFixed(2);
+      document.getElementById("progress").style.display = "block";
+      document.getElementById("progress").innerHTML = progressHTML;
+      document.getElementById("overallScore").innerText = `Overall Score: ${overall}%`;
+
+      document.getElementById("hints").innerHTML = hints.length > 0
+        ? "<strong>To improve:</strong><ul><li>" + hints.join("</li><li>") + "</li></ul>"
+        : "<strong>Great job!</strong> You met all your goals.";
+    }
+  </script>
+</body>
+
+</html>
